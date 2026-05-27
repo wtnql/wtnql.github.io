@@ -71,7 +71,7 @@
 
 </head>
 <body>
-  <h2>轨道重排，支持.mc/.osu（2026.5.27.1）</text></h2>
+  <h2>轨道重排，支持.mc/.osu（2026.5.28.1）</text></h2>
   <hr />
   <div>
     <input type="file" id="input" accept=".mc,.osu" onchange="choosefile()" style="display: none;">
@@ -182,7 +182,7 @@
       // 提取 "note": [] 里的内容
       hitObjects = data.note; 
 
-      a1.innerHTML += "，version: "+version+"，key数: "+circleSize;
+      a1.innerHTML += "，version："+version+"，key数："+circleSize;
       newVersion.value = version;
       if(circleSize>=4 && circleSize<=8){
         document.getElementById('plane1').style.display = 'block';
@@ -248,7 +248,7 @@
         }
       }
     }
-    a1.innerHTML += "，版本: "+version+"，key数: "+circleSize;
+    a1.innerHTML += "，version："+version+"，key数："+circleSize;
     newVersion.value = version;
     if(circleSize>=4 && circleSize<=8){
       document.getElementById('plane1').style.display = 'block';
@@ -349,12 +349,12 @@
   function updateOsu(){
     var newHitObjects = [];
     var oldKey = circleSize;
-    var newKey = keyCount.value;
+    var newKey = parseInt(keyCount.value);
     var newList = [];
     for(let i = 0; i < newKey; i++){
-      newList.push(document.getElementById(`column${i}`).value);
+      newList.push(parseInt(document.getElementById(`column${i}`).value));
     }
-    var oldMap = getOsuMap(oldKey);
+    
     var newMap = getOsuMap(newKey);
   // 遍历每一个原物件
     for (let obj of hitObjects) {
@@ -364,7 +364,7 @@
       const x = parseInt(xStr);
 
       //轨道匹配
-      const oldIdx = oldMap.indexOf(x);
+      const oldIdx = getOsuIdx(oldKey,x);
         if (oldIdx == -1) {
           // 未匹配到任何轨道
           continue;
@@ -386,6 +386,49 @@
       }
       return newHitObjects;
     
+  }
+  //osu查询轨道索引
+  function getOsuIdx(keyCount,x){
+    if (x < 0 || x > 511) return -1;
+    switch (keyCount) {
+      case 4:
+        if (x <= 127) return 0;
+        if (x <= 255) return 1;
+        if (x <= 383) return 2;
+        return 3;
+      case 5:
+        if (x <= 101) return 0;
+        if (x <= 203) return 1;
+        if (x <= 305) return 2;
+        if (x <= 407) return 3;
+        return 4;
+      case 6:
+        if (x <= 84) return 0;
+        if (x <= 169) return 1;
+        if (x <= 254) return 2;
+        if (x <= 339) return 3;
+        if (x <= 424) return 4;
+        return 5;
+      case 7:
+        if (x <= 72) return 0;
+        if (x <= 145) return 1;
+        if (x <= 218) return 2;
+        if (x <= 291) return 3;
+        if (x <= 364) return 4;
+        if (x <= 437) return 5;
+        return 6;
+      case 8:
+        if (x <= 63) return 0;
+        if (x <= 127) return 1;
+        if (x <= 191) return 2;
+        if (x <= 255) return 3;
+        if (x <= 319) return 4;
+        if (x <= 383) return 5;
+        if (x <= 447) return 6;
+        return 7;
+      default:
+        return -1;
+    }
   }
 
   //osu映射列表
