@@ -23,7 +23,7 @@
     button{
       display: block;
       width: 200px;
-      margin: 10px auto;
+      margin: 20px auto;
       padding: 5px 15px;
       font-size: 16px;
     }
@@ -59,6 +59,7 @@
   <p id="a1"></p>
   
   <div id="plane1" style="display:none">
+    <hr style="margin:10px 0 10px 0" />
     <text>新version：</text><input type="text" id="newVersion" placeholder="请输入内容" >
     <text style="margin: 0 0 0 10px ;">新key数：</text>
     <select id="keyCount">
@@ -68,9 +69,11 @@
       <option value="7">7</option>
       <option value="8">8</option>
     </select>
-    <p>新轨道排布(1-n对应原谱轨道，0表示放空): </p>
+    
+    <p style="margin:10px 0 0 0">新轨道排布（1-n对应原谱轨道，0表示放空）：</p>
     <div id="selectsWrapper"></div>
-    <div>
+    
+    <div >
       <button onclick="create()">生成并下载</button>
     </div>
     
@@ -456,7 +459,7 @@
       result.push(line);
       
     }
-    return result.join('\n')+'\n';
+    return result.join('\r\n')+'\r\n';
 
   }
 
