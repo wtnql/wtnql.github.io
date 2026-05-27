@@ -1,0 +1,475 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<title>多k轨道重排</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    body {
+      max-width: 600px;
+      margin: 0 auto;
+      padding: 20px;
+      line-height: 2;
+
+    }
+    hr {
+      
+    }
+    button{
+      display: block;
+      width: 200px;
+      margin: 10px auto;
+      padding: 5px 15px;
+      font-size: 16px;
+    }
+    input[type="file"] {
+      margin: 10px 0 5px 0;
+      font-size: 16px;
+    }
+    input[type="text"] {
+      font-size: 16px;
+      padding: 5px 5px;
+    }
+    select{
+      font-size: 16px;
+      margin: 0 10px 0 0;
+      padding: 5px 5px;
+
+    }
+    textarea {
+      width: 550px;
+      margin: 5px 0 0 0;
+      height: 125px;
+    }
+  </style>
+
+</head>
+<body>
+  <h2>多k轨道重排，支持.mc/.osu（2026.5.27）</text></h2>
+  <hr />
+  <div>
+    <input type="file" id="input" accept=".mc,.osu" onchange="choosefile()">
+  </div>
+  <textarea id="text" cols="100" rows="50"></textarea>
+  <p id="a1"></p>
+  
+  <div id="plane1" style="display:none">
+    <text>新version：</text><input type="text" id="newVersion" placeholder="请输入内容" >
+    <text style="margin: 0 0 0 10px ;">新key数：</text>
+    <select id="keyCount">
+      <option value="4">4</option>
+      <option value="5">5</option>
+      <option value="6">6</option>
+      <option value="7">7</option>
+      <option value="8">8</option>
+    </select>
+    <p>新轨道排布(1-n对应原谱轨道，0表示放空): </p>
+    <div id="selectsWrapper"></div>
+    <div>
+      <button onclick="create()">生成并下载</button>
+    </div>
+    
+  </div>
+
+  <p id="a2"></p>
+
+
+<script>
+  const input = document.getElementById('input');
+  const a1 = document.getElementById('a1');
+  const a2 = document.getElementById('a2');
+  const newVersion = document.getElementById('newVersion');
+  const keyCount = document.getElementById('keyCount');
+  keyCount.addEventListener('change', (e) =>{keyChange(e.target.value);})
+  const selectsWrapper = document.getElementById('selectsWrapper');
+
+  // 全局变量
+  let circleSize = 0;  
+  let hitObjects = []; 
+  let version = "";
+  let ext = "";
+  let reader;
+  let baseName = "";
+
+  function choosefile(){
+    const file = input.files[0];
+    document.getElementById('text').value = "";
+    document.getElementById('plane1').style.display = 'none';
+    selectsWrapper.innerHTML = '';
+    a1.innerHTML = '';
+    a2.innerHTML = '';
+
+    //选择文件判断
+    if (!file) {
+      a1.innerHTML = "";
+      return;
+    }
+    reader = new FileReader();
+    // 获取文件名，并提取扩展名（转为小写便于比较）
+    const fileName = file.name;
+    ext = fileName.substring(fileName.lastIndexOf('.')).toLowerCase();
+    baseName = fileName.substring(0, fileName.lastIndexOf('.'));
+    // 允许的后缀名列表
+    const allowedExts = ['.mc', '.osu'];
+    if (ext == ".mc") {
+      a1.innerHTML = "选择的文件类型为.mc";
+    }
+    else if(ext == ".osu"){
+      a1.innerHTML = "选择的文件类型为.osu";
+    }
+    else{
+      a1.innerHTML = "不支持的文件类型";
+      return;
+    }
+    reader.onload = function () {
+      document.getElementById('text').value = reader.result;
+
+      if (ext == ".mc") {
+        readMc(reader.result);
+      }
+      else if(ext == ".osu"){
+        readOsu(reader.result);
+      }
+
+    }
+    reader.readAsText(file, "UTF-8");
+  }
+  function readMc(content){
+    hitObjects.length = 0;
+    circleSize = 0;
+    version = "";
+    try {
+      const data = JSON.parse(content);
+      // 提取 "version": string 字段 (位于 meta.version)
+      version = data.meta.version;
+      // 提取 "column": n 字段 (位于 meta.mode_ext.column)
+      circleSize = data.meta.mode_ext.column;
+      // 提取 "note": [] 里的内容
+      hitObjects = data.note; 
+
+      a1.innerHTML += "，version: "+version+"，key数: "+circleSize;
+      newVersion.value = version;
+      if(circleSize>=4 && circleSize<=8){
+        document.getElementById('plane1').style.display = 'block';
+        keyCount.value = circleSize;
+        generateOptions(keyCount.value);
+      }
+      else{
+        a1.innerHTML += "（超出允许范围4-8！）"
+      }
+
+      
+    }
+    catch (error) {
+      a2.innerHTML = "解析错误";
+    }
+  }
+
+
+  function readOsu(content){
+    const lines = content.split(/\r?\n/); // 按换行符分割，兼容 \n 和 \r\n
+    let inHitObjects = false;
+    let inDifficulty = false;
+    let inMetadata = false;
+    hitObjects.length = 0;
+    circleSize = 0;
+    version = "";
+
+    for (const line of lines){
+      if (line.startsWith('[') && line.endsWith(']')) {
+        inMetadata = false;
+        inDifficulty = false;
+        inHitObjects = false;
+        if (line == '[Metadata]') inMetadata = true;
+        else if (line == '[Difficulty]') inDifficulty = true;
+        else if (line == '[HitObjects]') inHitObjects = true;
+        continue;
+      }
+      //收集Metadata中Version
+      if(inMetadata && line.includes(':')){
+        const colonIndex = line.indexOf(':');
+        const key = line.substring(0, colonIndex).trim();
+        if (key == 'Version') {
+          const value = line.substring(colonIndex + 1).trim();
+          version = value;
+        }
+      }
+
+      //收集Difficulty中CircleSize
+      if(inDifficulty && line.includes(':')){
+        const colonIndex = line.indexOf(':');
+        const key = line.substring(0, colonIndex).trim();
+        if (key == 'CircleSize') {
+          const value = line.substring(colonIndex + 1).trim();
+          circleSize = parseInt(value);
+        }
+      }
+
+      //收集HitObjects非空行
+      if(inHitObjects){
+        const trimmed = line.trim();
+          if (trimmed != '') {
+            hitObjects.push(line);  // 保留原始行内容（不含换行符）
+        }
+      }
+    }
+    a1.innerHTML += "，版本: "+version+"，key数: "+circleSize;
+    newVersion.value = version;
+    if(circleSize>=4 && circleSize<=8){
+      document.getElementById('plane1').style.display = 'block';
+      keyCount.value = circleSize;
+      generateOptions(keyCount.value);
+    }
+    else{
+      a1.innerHTML += "（超出允许范围4-8！）"
+    }
+    
+    
+  }
+
+  function keyChange(value){
+    generateOptions(value);
+  }
+
+  function generateOptions(count){
+    selectsWrapper.innerHTML = '';// 清空容器
+    // 循环创建 count 个独立的select组
+    for (let i = 0; i < count; i++){
+      // 创建 select 元素
+      const select = document.createElement('select');
+      select.id = `column${i}`;
+
+      // 定义选项值数组
+      const options = [...Array(circleSize + 1).keys()];
+      options.forEach(value => {
+        const option = document.createElement('option');
+        option.value = value;
+        option.textContent = value;
+        // 默认选中
+        if (value == i+1) {
+          option.selected = true;
+        }
+        select.appendChild(option);
+      });
+
+      // 将 select 添加到容器
+      selectsWrapper.appendChild(select);
+    }
+  }
+  //执行文本生成
+  function create(){
+    if (ext == ".mc") {
+      var newHitObjects=updateMc(); 
+      var newContent = connectMc(reader.result,newVersion.value,keyCount.value,newHitObjects);
+      download(newContent);
+    }
+    else if(ext == ".osu"){
+      var newHitObjects=updateOsu();
+      var newContent = connectOsu(reader.result,newVersion.value,keyCount.value,newHitObjects);
+      download(newContent);
+    }
+    else{
+      a2.innerHTML="后缀错误";
+      return;
+    }
+  }
+  //mc格式HitObjects改变
+  function updateMc(){
+    var newHitObjects = [];
+    var oldKey = circleSize;
+    var newKey = keyCount.value;
+    var newList = [];
+    for (let i = 0; i < newKey; i++) {
+        newList.push(parseInt(document.getElementById(`column${i}`).value));
+    }
+    // 遍历原始 note 数组
+    for (let obj of hitObjects){
+      // 如果没有 column 字段（例如 sound 对象），直接保留
+      if (obj.column === undefined) {
+        newHitObjects.push({ ...obj });
+        continue;
+      }
+      //轨道匹配
+      const oldCol = obj.column; 
+      const oldTrackNum = oldCol + 1; 
+      const targetJList = [];
+      for (let j = 0; j < newList.length; j++) {
+        if (newList[j] === oldTrackNum) {
+          targetJList.push(j);
+        }
+      }
+
+      // 为每一个匹配的新轨道生成一个新物件
+      for (let j of targetJList) {
+        const newObj = { ...obj };
+        newObj.column = j;                   
+        newHitObjects.push(newObj);
+      }
+    }
+    return newHitObjects;
+  }
+
+
+  //osu格式HitObjects改变
+  function updateOsu(){
+    var newHitObjects = [];
+    var oldKey = circleSize;
+    var newKey = keyCount.value;
+    var newList = [];
+    for(let i = 0; i < newKey; i++){
+      newList.push(document.getElementById(`column${i}`).value);
+    }
+    var oldMap = getOsuMap(oldKey);
+    var newMap = getOsuMap(newKey);
+  // 遍历每一个原物件
+    for (let obj of hitObjects) {
+      // 解析 x 坐标（第一个逗号之前的内容）
+      const firstComma = obj.indexOf(',');
+      const xStr = obj.substring(0, firstComma);
+      const x = parseInt(xStr);
+
+      //轨道匹配
+      const oldIdx = oldMap.indexOf(x);
+        if (oldIdx == -1) {
+          // 未匹配到任何轨道
+          continue;
+        }
+      const oldTrackNumber = oldIdx + 1;
+      const targetJList = [];
+        for (let j = 0; j < newList.length; j++) {
+          if (newList[j] == oldTrackNumber) {
+            targetJList.push(j);
+          }
+        }
+      // 为每一个新轨道生成一个新物件
+        for (let j of targetJList) {
+            const newX = newMap[j];
+            // 替换原字符串中的 x 坐标
+            const newObj = newX + obj.substring(firstComma);
+            newHitObjects.push(newObj);
+        }
+      }
+      return newHitObjects;
+    
+  }
+
+  //osu映射列表
+  function getOsuMap(num){
+    if(num == 4){
+      return [64,192,320,448];
+    }
+    else if(num == 5){
+      return [51,153,256,358,460];
+    }
+    else if(num == 6){
+      return [42,128,213,298,384,469];
+    }
+    else if(num == 7){
+      return [36,109,182,256,329,402,475];
+    }
+    else if(num == 8){
+      return [32,96,160,224,288,352,416,480];
+    }
+    else{
+      return [];
+    }
+  }
+
+  //mc拼接文本
+  function connectMc(content,newVersion,newCircleSize,newHitObjects){
+    try {
+      const original = JSON.parse(content);
+      // 深拷贝原始数据
+      const newData = JSON.parse(JSON.stringify(original));
+      // 1. 修改 version和 column
+      if (newData.meta){
+        newData.meta.version = newVersion;
+        newData.meta.time = newData.meta.time+1;
+        if(newData.meta.mode_ext){
+          newData.meta.mode_ext.column = parseInt(newCircleSize);
+        }
+      }
+      //2.修改note 数组
+      newData.note = newHitObjects;
+
+      //3.输出无空格字符串
+      return JSON.stringify(newData);
+
+    }
+    catch (error) {
+        a2.innerHTML = "拼接错误";
+        return "";
+    }
+
+  }
+
+  //osu拼接文本
+  function connectOsu(content,newVersion,newCircleSize,newHitObjects){
+    const lines = content.split(/\r?\n/); // 按换行符分割，兼容 \n 和 \r\n
+    let inHitObjects = false;
+    let inDifficulty = false;
+    let inMetadata = false;
+    const result = [];
+
+    for (let i = 0; i < lines.length; i++){
+      let line = lines[i];
+      //检测节头
+      if (line.startsWith('[') && line.endsWith(']')) {
+        inMetadata = false;
+        inDifficulty = false;
+        inHitObjects = false;
+        if (line == '[Metadata]'){
+          inMetadata = true;
+        } 
+        else if (line == '[Difficulty]'){
+          inDifficulty = true;
+        } 
+        else if (line == '[HitObjects]'){
+          //一口气跳过并添加
+          result.push(line);
+          result.push(...newHitObjects);
+          while (i + 1 < lines.length && !(lines[i + 1].startsWith('[') && lines[i + 1].endsWith(']'))) {
+            i++;
+                }
+          continue;
+        } 
+        
+      }
+      //特定行修改
+      else if(inMetadata && line.startsWith('Version:')){
+        line = `Version:${newVersion}`;
+      }
+      else if(inMetadata && line.startsWith('BeatmapID:')){
+        line = "BeatmapID:0";
+      }
+      else if(inMetadata && line.startsWith('BeatmapSetID:')){
+        line = "BeatmapSetID:-1";
+      }
+      else if(inDifficulty && line.startsWith('CircleSize:')){
+        line = `CircleSize:${newCircleSize}`;
+      }
+      result.push(line);
+      
+    }
+    return result.join('\n')+'\n';
+
+  }
+
+  function download(content){
+    const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
+            const link = document.createElement('a');
+            link.href = URL.createObjectURL(blob);
+            link.download = baseName + "-new" + ext;
+            link.click();
+            URL.revokeObjectURL(link.href);
+  }
+
+
+</script>
+</body>
+</html>
