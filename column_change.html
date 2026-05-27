@@ -3,7 +3,7 @@
 <head>
 	<meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-	<title>多k轨道重排</title>
+	<title>轨道重排</title>
   <style>
     * {
       margin: 0;
@@ -23,6 +23,7 @@
     button{
       display: block;
       width: 200px;
+      height: 40px;
       margin: 20px auto;
       padding: 5px 15px;
       font-size: 16px;
@@ -46,16 +47,38 @@
       margin: 5px 0 0 0;
       height: 125px;
     }
+    .button-like {
+      display: block;
+      width: 200px;
+      height: 40px;
+      margin: 10px auto;
+      padding: 5px 15px;
+      font-size: 16px;
+      /* 浏览器默认按钮样式（包括背景色、边框等） */
+      background-color: buttonface;
+      border: 1px solid #767676;
+      border-radius: 2px;
+      
+      text-align: center;
+      text-decoration: none;
+      color: buttontext;
+    }
+    .button-like:hover {
+      background-color: #e6e6e6;
+      border-color: #4d4d4d;
+    }
   </style>
 
 </head>
 <body>
-  <h2>多k轨道重排，支持.mc/.osu（2026.5.27）</text></h2>
+  <h2>轨道重排，支持.mc/.osu（2026.5.27）</text></h2>
   <hr />
   <div>
-    <input type="file" id="input" accept=".mc,.osu" onchange="choosefile()">
+    <input type="file" id="input" accept=".mc,.osu" onchange="choosefile()" style="display: none;">
+    <label for="input" class="button-like">选择文件</label>
   </div>
-  <textarea id="text" cols="100" rows="50"></textarea>
+  <textarea id="text" cols="100" rows="50" readonly></textarea>
+  <p id="inputName"></p>
   <p id="a1"></p>
   
   <div id="plane1" style="display:none">
@@ -83,6 +106,7 @@
 
 
 <script>
+  const inputName = document.getElementById('inputName');
   const input = document.getElementById('input');
   const a1 = document.getElementById('a1');
   const a2 = document.getElementById('a2');
@@ -110,11 +134,14 @@
     //选择文件判断
     if (!file) {
       a1.innerHTML = "";
+      inputName.innerHTML = "";
+
       return;
     }
     reader = new FileReader();
     // 获取文件名，并提取扩展名（转为小写便于比较）
     const fileName = file.name;
+    inputName.innerHTML = fileName;
     ext = fileName.substring(fileName.lastIndexOf('.')).toLowerCase();
     baseName = fileName.substring(0, fileName.lastIndexOf('.'));
     // 允许的后缀名列表
