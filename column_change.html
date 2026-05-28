@@ -71,7 +71,7 @@
 
 </head>
 <body>
-  <h2>轨道重排，支持.mc/.osu（2026.5.28.1）</text></h2>
+  <h2>轨道重排，支持.mc/.osu（2026.5.28.2）</text></h2>
   <hr />
   <div>
     <input type="file" id="input" accept=".mc,.osu" onchange="choosefile()" style="display: none;">
@@ -95,7 +95,17 @@
     
     <p style="margin:10px 0 0 0">新轨道排布（1-n对应原谱轨道，0表示放空）：</p>
     <div id="selectsWrapper"></div>
+    <div>
+    <p style="margin:10px 0 0 0">移除LN：
+      <select id="ln">
+        <option value="1">是</option>
+        <option value="0" selected>否</option>
+      </select>
+    </p>
     
+    
+    </div>
+
     <div >
       <button onclick="create()">生成并下载</button>
     </div>
@@ -114,6 +124,7 @@
   const keyCount = document.getElementById('keyCount');
   keyCount.addEventListener('change', (e) =>{keyChange(e.target.value);})
   const selectsWrapper = document.getElementById('selectsWrapper');
+  const ln = document.getElementById('ln');
 
   // 全局变量
   let circleSize = 0;  
@@ -130,6 +141,7 @@
     selectsWrapper.innerHTML = '';
     a1.innerHTML = '';
     a2.innerHTML = '';
+    ln.value = "0";
 
     //选择文件判断
     if (!file) {
@@ -336,8 +348,13 @@
 
       // 为每一个匹配的新轨道生成一个新物件
       for (let j of targetJList) {
+        //创建新对象，复制所有属性
         const newObj = { ...obj };
-        newObj.column = j;                   
+        newObj.column = j;   
+        if(ln.value == "1"){
+          //去除LN
+          delete newObj.endbeat;
+        }               
         newHitObjects.push(newObj);
       }
     }
@@ -379,8 +396,30 @@
       // 为每一个新轨道生成一个新物件
         for (let j of targetJList) {
             const newX = newMap[j];
-            // 替换原字符串中的 x 坐标
-            const newObj = newX + obj.substring(firstComma);
+            let newObj;
+
+            if(ln.value == "1"){
+              //移除ln
+              // 按逗号分割全部字段
+              const parts = obj.split(',');
+              if (parts.length >= 4){
+                // 替换 x 坐标
+                parts[0] = newX.toString();
+                const type = parseInt(parts[3]);
+                if(type == 128){
+                  parts[3] = "1";
+                  if (parts.length >= 6){
+                    const extras = parts[5];
+                    const colonIndex = extras.indexOf(':');
+                    parts[5] = extras.substring(colonIndex + 1);
+                  }
+                }
+                newObj = parts.join(',');
+              }
+            }
+            else{
+              newObj = newX + obj.substring(firstComma);
+            }
             newHitObjects.push(newObj);
         }
       }
