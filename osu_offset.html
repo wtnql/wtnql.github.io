@@ -32,6 +32,10 @@
       margin: 10px 0 5px 0;
       font-size: 16px;
     }
+    input[type="text"] {
+      font-size: 16px;
+      padding: 5px 5px;
+    }
     input[type="number"] {
       font-size: 16px;
       padding: 5px 5px;
@@ -86,6 +90,7 @@
 
   <div id="plane1" style="display:none">
     <hr style="margin:10px 0 10px 0" />
+    <text>新version：</text><input type="text" id="newVersion" placeholder="请输入内容" >
     <text>总体偏移变化量：</text><input type="number" id="newOffset" step="1" value="0" placeholder="请输入整数" >
     <div >
       <button onclick="create()">生成并下载</button>
@@ -99,6 +104,7 @@
   const input = document.getElementById('input');
   const a0 = document.getElementById('a0');
   const plane1 = document.getElementById('plane1');
+  const newVersion = document.getElementById('newVersion');
   const newOffset = document.getElementById('newOffset');
   const a1 = document.getElementById('a1');
 
@@ -228,6 +234,7 @@
     }
     a0.innerHTML += "\n"+ "version："+version+"，key数："+circleSize;
     plane1.style.display = 'block';
+    newVersion.value = "[new_off] " + version;
     a1.innerHTML = "";
     
   }
@@ -319,7 +326,7 @@
   }
 
   //osu拼接文本
-  function connectOsu(content,newTimingPoints,newHitObjects){
+  function connectOsu(content,newVersion,newTimingPoints,newHitObjects){
     const lines = content.split(/\r?\n/); // 按换行符分割，兼容 \n 和 \r\n
     let inHitObjects = false;
     let inTimingPoints = false;
@@ -360,6 +367,9 @@
         
       }
       //特定行修改
+      else if(inMetadata && line.startsWith('Version:')){
+        line = `Version:${newVersion}`;
+      }
       else if(inMetadata && line.startsWith('BeatmapID:')){
         line = "BeatmapID:0";
       }
