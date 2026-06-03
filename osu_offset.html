@@ -43,9 +43,11 @@
 
     }
     textarea {
+      font-size: 14px;
+      line-height: 1.2;
       width: 550px;
       margin: 5px 0 0 0;
-      height: 125px;
+      height: 150px;
     }
     .button-like {
       display: block;
@@ -149,6 +151,15 @@
     }
     reader.readAsText(file, "UTF-8");
   }
+  //TextArea初始滚动
+  function scrollToLine(textarea, lineNumber) {
+
+    let lineHeight = 14*1.2;
+    
+    // 滚动到目标行（行号从 1 开始）
+    const scrollPosition = (lineNumber - 1) * lineHeight;
+    textarea.scrollTop = scrollPosition;
+  }
 
   function readOsu(content){
     const lines = content.split(/\r?\n/); // 按换行符分割，兼容 \n 和 \r\n
@@ -162,7 +173,8 @@
     circleSize = 0;
     version = "";
 
-    for (const line of lines){
+    for (let i = 0; i < lines.length; i++){
+      var line = lines[i];
       if (line.startsWith('[') && line.endsWith(']')) {
         inMetadata = false;
         inDifficulty = false;
@@ -170,7 +182,11 @@
         inHitObjects = false;
         if (line == '[Metadata]') inMetadata = true;
         else if (line == '[Difficulty]') inDifficulty = true;
-        else if (line == '[TimingPoints]') inTimingPoints = true;
+        else if (line == '[TimingPoints]'){
+          //行号滚动
+          scrollToLine(document.getElementById('fileText'), i);
+          inTimingPoints = true;
+        } 
         else if (line == '[HitObjects]') inHitObjects = true;
         continue;
       }
