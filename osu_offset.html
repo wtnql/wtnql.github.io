@@ -234,7 +234,7 @@
     }
     a0.innerHTML += "\n"+ "version："+version+"，key数："+circleSize;
     plane1.style.display = 'block';
-    newVersion.value = "[r-off] " + version;
+    newVersion.value = "[re-off] " + version;
     a1.innerHTML = "";
     
   }
@@ -388,7 +388,7 @@
     const blob = new Blob([content], { type: 'application/octet-stream' });
     const link = document.createElement('a');
     link.href = URL.createObjectURL(blob);
-    link.download = baseName + "-[re-offset]" + ext;
+    link.download = baseName + "-[re-off]" + ext;
     link.click();
     URL.revokeObjectURL(link.href);
   }
