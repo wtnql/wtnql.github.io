@@ -1,0 +1,360 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<title>总体偏移调整</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    body {
+      max-width: 600px;
+      margin: 0 auto;
+      padding: 20px;
+      line-height: 2;
+
+    }
+    hr {
+      
+    }
+    button{
+      display: block;
+      width: 200px;
+      height: 40px;
+      margin: 20px auto;
+      padding: 5px 15px;
+      font-size: 16px;
+    }
+    input[type="file"] {
+      margin: 10px 0 5px 0;
+      font-size: 16px;
+    }
+    input[type="number"] {
+      font-size: 16px;
+      padding: 5px 5px;
+    }
+    select{
+      font-size: 16px;
+      margin: 0 10px 0 0;
+      padding: 5px 5px;
+
+    }
+    textarea {
+      width: 550px;
+      margin: 5px 0 0 0;
+      height: 125px;
+    }
+    .button-like {
+      display: block;
+      width: 200px;
+      height: 40px;
+      margin: 10px auto;
+      padding: 5px 15px;
+      font-size: 16px;
+      /* 浏览器默认按钮样式（包括背景色、边框等） */
+      background-color: buttonface;
+      border: 1px solid #767676;
+      border-radius: 2px;
+      
+      text-align: center;
+      text-decoration: none;
+      color: buttontext;
+    }
+    .button-like:hover {
+      background-color: #e6e6e6;
+      border-color: #4d4d4d;
+    }
+  </style>
+
+</head>
+<body>
+  <h2>总体偏移调整，支持.osu<br>（2026.6.4.1）</h2>
+  <hr />
+  <p>用于调整osz格式导入malody后的总体偏移，正/负数表示note更晚/早落下（单位：ms）。</p>
+  <p>ma4参考：对于易测谱，测量偏移并等价至与导入偏移同一节拍区间（导入偏移为原文件TimingPoints第一行首位取负，bpm多变时可能在ma4无法正确显示），计算差值并取负。（例如：导入偏移-617，测量结果184、282，计算等价偏移：282+60000/184*i（取-3）=-696，计算差值并取负：79）</p>
+  <div>
+    <input type="file" id="input" accept=".osu" onchange="choosefile()" style="display: none;">
+    <label for="input" class="button-like">选择文件</label>
+  </div>
+  <textarea id="fileText" cols="100" rows="50" readonly></textarea>
+  <p id="a0" style="white-space: pre-line;"></p>
+
+  <div id="plane1" style="display:none">
+    <hr style="margin:10px 0 10px 0" />
+    <text>总体偏移变化量：</text><input type="number" id="newOffset" step="1" value="0" placeholder="请输入整数" >
+    <div >
+      <button onclick="create()">生成并下载</button>
+    </div>
+  </div>
+
+  <p id="a1"></p>
+
+
+<script>
+  const input = document.getElementById('input');
+  const a0 = document.getElementById('a0');
+  const plane1 = document.getElementById('plane1');
+  const newOffset = document.getElementById('newOffset');
+  const a1 = document.getElementById('a1');
+
+  let reader;
+  let ext = "";
+  let baseName = "";
+
+//osu文件读取结果
+  let version = "";
+  let circleSize = 0;  
+  let hitObjects = []; 
+  let timingPoints = [];
+
+  function choosefile(){
+
+    const file = input.files[0];
+    document.getElementById('fileText').value = "";
+    document.getElementById('plane1').style.display = 'none';
+    a0.innerHTML = '';
+
+    
+    //选择文件判断
+    if (!file) {
+      a0.innerHTML = "";
+      return;
+    }
+
+    reader = new FileReader();
+    // 获取文件名，并提取扩展名（转为小写便于比较）
+    const fileName = file.name;
+    a0.innerHTML = fileName;
+    ext = fileName.substring(fileName.lastIndexOf('.')).toLowerCase();
+    baseName = fileName.substring(0, fileName.lastIndexOf('.'));
+    // 后缀名判断
+    if(ext == ".osu"){
+      
+    }
+    else{
+      a0.innerHTML += "\n"+ "不支持的文件类型";
+      return;
+    }
+
+    reader.onload = function () {
+      document.getElementById('fileText').value = reader.result;
+
+      if(ext == ".osu"){
+        readOsu(reader.result);
+      }
+
+    }
+    reader.readAsText(file, "UTF-8");
+  }
+
+  function readOsu(content){
+    const lines = content.split(/\r?\n/); // 按换行符分割，兼容 \n 和 \r\n
+    let inTimingPoints = false;
+    let inHitObjects = false;
+    let inDifficulty = false;
+    let inMetadata = false;
+    //存储物件
+    hitObjects.length = 0;
+    timingPoints.length = 0;
+    circleSize = 0;
+    version = "";
+
+    for (const line of lines){
+      if (line.startsWith('[') && line.endsWith(']')) {
+        inMetadata = false;
+        inDifficulty = false;
+        inTimingPoints = false;
+        inHitObjects = false;
+        if (line == '[Metadata]') inMetadata = true;
+        else if (line == '[Difficulty]') inDifficulty = true;
+        else if (line == '[TimingPoints]') inTimingPoints = true;
+        else if (line == '[HitObjects]') inHitObjects = true;
+        continue;
+      }
+      //收集Metadata中Version
+      if(inMetadata && line.includes(':')){
+        const colonIndex = line.indexOf(':');
+        const key = line.substring(0, colonIndex).trim();
+        if (key == 'Version') {
+          const value = line.substring(colonIndex + 1).trim();
+          version = value;
+        }
+      }
+
+      //收集Difficulty中CircleSize
+      if(inDifficulty && line.includes(':')){
+        const colonIndex = line.indexOf(':');
+        const key = line.substring(0, colonIndex).trim();
+        if (key == 'CircleSize') {
+          const value = line.substring(colonIndex + 1).trim();
+          circleSize = parseInt(value);
+        }
+      }
+
+      //收集TimingPoints非空行
+      if(inTimingPoints){
+        const trimmed = line.trim();
+          if (trimmed != '') {
+            timingPoints.push(line);  // 保留原始行内容（不含换行符）
+        }
+      }
+
+      //收集HitObjects非空行
+      if(inHitObjects){
+        const trimmed = line.trim();
+          if (trimmed != '') {
+            hitObjects.push(line);  // 保留原始行内容（不含换行符）
+        }
+      }
+    }
+    a0.innerHTML += "\n"+ "version："+version+"，key数："+circleSize;
+    plane1.style.display = 'block';
+    a1.innerHTML = "";
+    
+  }
+  //执行文本生成
+  function create(){
+    a1.innerHTML = "";
+    if(ext == ".osu"){
+      let intOffset = parseInt(newOffset.value, 10);
+
+      if (isNaN(intOffset)) {
+        intOffset = 0;
+        a1.innerHTML = "offest输入错误";
+        return;
+      }
+      a1.innerHTML = "读取并使用"+ intOffset.toString() +"生成";
+    
+      var newTimingPoints = updateOsuTiming(intOffset);
+      var newHitObjects = updateOsuHit(intOffset);
+
+      var newContent = connectOsu(reader.result,newTimingPoints,newHitObjects);
+      download(newContent);
+    }
+    else{
+      a1.innerHTML="后缀错误";
+      return;
+    }
+  }
+
+  //osu格式TimingPoints改变
+  function updateOsuTiming(intOffset){
+    var newTimingPoints = [];
+
+    // 遍历每一个原物件
+    for (let obj of timingPoints){
+      // 解析时间（第一个逗号之前的内容）
+      const firstComma = obj.indexOf(',');
+      const xStr = obj.substring(0, firstComma);
+      const x = parseInt(xStr);
+
+      //计算新时间
+      const newX = x + intOffset;
+
+      //获取新obj
+      let newObj;
+      newObj = newX + obj.substring(firstComma);
+      newTimingPoints.push(newObj);
+
+    }
+
+    return newTimingPoints;
+  }
+
+    //osu格式HitObjects改变
+  function updateOsuHit(intOffset){
+    var newHitObjects = [];
+
+    // 遍历每一个原物件
+    for (let obj of hitObjects){
+      // 解析时间（第三个数字）
+      // 按逗号分割全部字段
+      const parts = obj.split(',');
+      const x = parseInt(parts[2]);
+      const newX = x + intOffset;
+      // 替换
+      parts[2] = newX.toString();
+
+      //获取新obj
+      let newObj;
+      newObj = parts.join(',');
+      newHitObjects.push(newObj);
+
+    }
+
+    return newHitObjects;
+  }
+
+  //osu拼接文本
+  function connectOsu(content,newTimingPoints,newHitObjects){
+    const lines = content.split(/\r?\n/); // 按换行符分割，兼容 \n 和 \r\n
+    let inHitObjects = false;
+    let inTimingPoints = false;
+    let inMetadata = false;
+    const result = [];
+
+    for (let i = 0; i < lines.length; i++){
+      let line = lines[i];
+      //检测节头
+      if (line.startsWith('[') && line.endsWith(']')) {
+        inMetadata = false;
+        inTimingPoints = false;
+        inHitObjects = false;
+        if (line == '[Metadata]'){
+          inMetadata = true;
+        } 
+        else if (line == '[TimingPoints]'){
+          //一口气跳过并添加
+          result.push(line);
+          result.push(...newTimingPoints);
+          result.push("");
+          result.push("");
+          while (i + 1 < lines.length && !(lines[i + 1].startsWith('[') && lines[i + 1].endsWith(']'))) {
+            i++;
+                }
+          continue;
+        } 
+        else if (line == '[HitObjects]'){
+          //一口气跳过并添加
+          result.push(line);
+          result.push(...newHitObjects);
+          result.push("");
+          while (i + 1 < lines.length && !(lines[i + 1].startsWith('[') && lines[i + 1].endsWith(']'))) {
+            i++;
+                }
+          continue;
+        } 
+        
+      }
+      //特定行修改
+      else if(inMetadata && line.startsWith('BeatmapID:')){
+        line = "BeatmapID:0";
+      }
+      else if(inMetadata && line.startsWith('BeatmapSetID:')){
+        line = "BeatmapSetID:-1";
+      }
+      result.push(line);
+      
+    }
+    return result.join('\r\n');
+
+  }
+
+  function download(content){
+    //const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
+    const blob = new Blob([content], { type: 'application/octet-stream' });
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = baseName + ext;
+    link.click();
+    URL.revokeObjectURL(link.href);
+  }
+
+
+</script>
+
+</body>
+</html>
