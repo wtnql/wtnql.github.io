@@ -90,7 +90,7 @@
 
   <div id="plane1" style="display:none">
     <hr style="margin:10px 0 10px 0" />
-    <text>新version：</text><input type="text" id="newVersion" placeholder="请输入内容" >
+    
     <text>总体偏移变化量：</text><input type="number" id="newOffset" step="1" value="0" placeholder="请输入整数" >
     <div >
       <button onclick="create()">生成并下载</button>
@@ -104,7 +104,7 @@
   const input = document.getElementById('input');
   const a0 = document.getElementById('a0');
   const plane1 = document.getElementById('plane1');
-  const newVersion = document.getElementById('newVersion');
+  //const newVersion = document.getElementById('newVersion');
   const newOffset = document.getElementById('newOffset');
   const a1 = document.getElementById('a1');
 
@@ -234,7 +234,7 @@
     }
     a0.innerHTML += "\n"+ "version："+version+"，key数："+circleSize;
     plane1.style.display = 'block';
-    newVersion.value = "[new_off] " + version;
+    //newVersion.value = "[new_off] " + version;
     a1.innerHTML = "";
     
   }
@@ -254,7 +254,7 @@
       var newTimingPoints = updateOsuTiming(intOffset);
       var newHitObjects = updateOsuHit(intOffset);
 
-      var newContent = connectOsu(reader.result,newVersion.value,newTimingPoints,newHitObjects);
+      var newContent = connectOsu(reader.result,version,newTimingPoints,newHitObjects);
       download(newContent);
     }
     else{
