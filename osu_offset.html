@@ -76,7 +76,7 @@
   <h2>总体偏移调整，支持.osu<br>（2026.6.4.1）</h2>
   <hr />
   <p>用于调整osz格式导入malody后的总体偏移，正/负数表示note更晚/早落下（单位：ms）。</p>
-  <p>ma4参考：对于易测谱，测量偏移并等价至与导入偏移同一节拍区间（导入偏移为原文件TimingPoints第一行首位取负，bpm多变时可能在ma4无法正确显示），计算差值并取负。（例如：导入偏移-617，测量结果184、282，计算等价偏移：282+60000/184*i（取-3）=-696，计算差值并取负：79）</p>
+  <p style="font-size: 14px;">ma4（仅供参考）：对于易测谱，测量偏移并等价至与导入偏移同一节拍区间（导入偏移为原文件TimingPoints第一行首位取负，bpm多变时可能在ma4无法正确显示），计算差值并取负。（例如：导入偏移-617，测量结果184、282，计算等价偏移：282+60000/184*i（取-3）=-696，计算差值并取负：79）</p>
   <div>
     <input type="file" id="input" accept=".osu" onchange="choosefile()" style="display: none;">
     <label for="input" class="button-like">选择文件</label>
