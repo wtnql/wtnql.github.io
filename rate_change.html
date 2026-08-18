@@ -153,7 +153,7 @@ function validateAndFixRate(input) {
     // 合法：强制保留两位小数，并更新输入框显示
     const fixedVal = Math.round(val * 100) / 100; // 四舍五入到两位小数
     // 注意：toFixed(2) 会返回字符串，可能导致额外舍入，但结合 step=0.01 可控
-    input.value = fixedVal.toFixed(2);
+    // input.value = fixedVal.toFixed(2);
     updateVer(fixedVal.toFixed(2));
     allowDownload = true;
     return;
@@ -330,12 +330,13 @@ function updateVer(value){
         return;
       }
       const rate = parseFloat(newRate.value);
+      const fixedVal = Math.round(rate * 100) / 100; // 四舍五入到两位小数
 
-      a1.innerHTML = "使用倍速"+ rate.toString() +"生成";
+      a1.innerHTML = "使用倍速"+ fixedVal.toFixed(2).toString() +"生成";
 
-      const newPreviewTime = Math.floor(parseInt(previewTime, 10) / rate).toString();
-      var newTimingPoints = updateOsuTiming(rate);
-      var newHitObjects = updateOsuHit(rate);
+      const newPreviewTime = Math.floor(parseInt(previewTime, 10) / fixedVal).toString();
+      var newTimingPoints = updateOsuTiming(fixedVal);
+      var newHitObjects = updateOsuHit(fixedVal);
 
       var newContent = connectOsu(reader.result,newPreviewTime,newMusic.value,newVersion.value,newTimingPoints,newHitObjects);
       download(newContent);
