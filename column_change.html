@@ -11,7 +11,7 @@
       box-sizing: border-box;
     }
     body {
-      max-width: 600px;
+      max-width: 800px;
       margin: 0 auto;
       padding: 20px;
       line-height: 2;
@@ -73,21 +73,21 @@
 
 </head>
 <body>
-  <h2>轨道编辑器，支持.mc/.osu，支持移除LN<br>（2026.5.28.2）</h2>
+  <h2 style="text-align: center;">轨道编辑器，支持.mc/.osu，支持移除LN（2026.8.18.1）</h2>
   <hr />
   <div>
     <input type="file" id="input" accept=".mc,.osu" onchange="choosefile()" style="display: none;">
     <label for="input" class="button-like">选择文件</label>
   </div>
-  <textarea id="text" cols="100" rows="50" readonly></textarea>
+  <textarea style="display:block; margin: 0 auto; width: 750px;" id="text" cols="100" rows="50" readonly ></textarea>
   <p id="inputName"></p>
   <p id="a1"></p>
   
   <div id="plane1" style="display:none">
     <hr style="margin:10px 0 10px 0" />
-    <text>新version：</text><input type="text" id="newVersion" placeholder="请输入内容" >
+    <text>新version：</text><input type="text" id="newVersion" placeholder="请输入内容" size="50">
     <text style="margin: 0 0 0 10px ;">新key数：</text>
-    <select id="keyCount">
+    <select id="keyCount" >
       <option value="4">4</option>
       <option value="5">5</option>
       <option value="6">6</option>
@@ -99,7 +99,7 @@
     <div id="selectsWrapper"></div>
     <div>
     <p style="margin:10px 0 0 0">移除LN：
-      <select id="ln">
+      <select id="ln" onchange="updateVer()">
         <option value="1">是</option>
         <option value="0" selected>否</option>
       </select>
@@ -135,6 +135,61 @@
   let ext = "";
   let reader;
   let baseName = "";
+
+  let downloadString = "";
+
+//updateVer()
+  function updateVer(){
+    downloadString = "";
+    //获取字段
+    var oldVersion = version;
+    var oldKey = circleSize;
+    var newKey = keyCount.value;
+    var newList = [];
+    for (let i = 0; i < newKey; i++) {
+        newList.push(parseInt(document.getElementById(`column${i}`).value));
+    }
+    var numLn = Number(ln.value);
+
+    //定义字符串
+    var prefixDigits = "";
+
+    // 判断是否满足“不添加”条件：新旧key相等且newList为1,2,...,oldKey
+    var isSequential = true;
+    if (newKey == oldKey) {
+        for (let i = 0; i < newKey; i++) {
+            if (newList[i] != i + 1) {
+                isSequential = false;
+                break;
+            }
+        }
+    } else {
+        isSequential = false;
+    }
+
+    if (!isSequential) {
+        // 拼接数字
+        prefixDigits = newList.join('');
+        downloadString = newList.join('');
+    }
+
+    // 第二步：根据 numLn 追加文字
+    if (numLn == 1) {
+        prefixDigits += "去LN";
+        downloadString += "nln";
+    }
+    // 第三步：加方括号
+    if (prefixDigits != "") {
+        prefixDigits = "[" + prefixDigits + "] ";
+        downloadString = "-[" + downloadString + "]";
+    }
+
+    
+
+    // 更新 newVersion 的 value
+    newVersion.value = prefixDigits + oldVersion;
+
+  }
 
   function choosefile(){
     const file = input.files[0];
@@ -278,6 +333,7 @@
 
   function keyChange(value){
     generateOptions(value);
+    updateVer();
   }
 
   function generateOptions(count){
@@ -300,6 +356,9 @@
         }
         select.appendChild(option);
       });
+
+      // 绑定 change 事件
+      select.addEventListener('change', updateVer);
 
       // 将 select 添加到容器
       selectsWrapper.appendChild(select);
@@ -579,7 +638,7 @@
     const blob = new Blob([content], { type: 'application/octet-stream' });
     const link = document.createElement('a');
     link.href = URL.createObjectURL(blob);
-    link.download = baseName + "-[wtnql]" + ext;
+    link.download = baseName + downloadString + "-[wtnql.github.io]" + ext;
     link.click();
     URL.revokeObjectURL(link.href);
   }

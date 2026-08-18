@@ -3,7 +3,7 @@
 <head>
 	<meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-	<title>总体偏移调整</title>
+	<title>谱面倍速工具</title>
   <style>
     * {
       margin: 0;
@@ -77,23 +77,28 @@
 
 </head>
 <body>
-  <h2 style="text-align: center;">总体偏移调整，支持.mc/.osu（2026.8.18.1）</h2>
+  <h2 style="text-align: center;">谱面倍速工具，支持.osu（2026.8.18.1）</h2>
   <hr />
-  <p>调整.mc/.osu，正/负数表示note更晚/早落下（单位：ms）。（mc主要用于malodyV的负偏移调整）</p>
-  <!--
-  <p style="font-size: 14px;">ma4（仅供参考）：对于易测谱，测量偏移并等价至与导入偏移同一节拍区间（导入偏移为原文件TimingPoints第一行首位取负，bpm多变时可能在ma4无法正确显示），计算差值并取负。（例如：导入偏移-617，测量结果184、282，计算等价偏移：282+60000/184*i（取-3）=-696，计算差值并取负：79）</p>
-  !-->
+  <p>1.从别处获取倍速后音乐（仅使用文件名）; 2.此工具生成.osu倍速后谱面文件; 3.共同放入谱面目录。<br>（因.mc格式可直接在malody中改bpm和偏移故不提供）</p>
+
   <div>
-    <input type="file" id="input" accept=".mc,.osu" onchange="choosefile()" style="display: none;">
-    <label for="input" class="button-like">选择文件</label>
+    <input type="file" id="inputMusic" accept=".ogg,.mp3" onchange="chooseMusic()" style="display: none;">
+    <label for="inputMusic" class="button-like">选择音乐文件</label>
+  </div>
+  
+  <div>
+    <input type="file" id="input" accept=".osu" onchange="chooseFile()" style="display: none;">
+    <label for="input" class="button-like">选择谱面文件</label>
   </div>
   <textarea style="display:block; margin: 0 auto; width: 750px;" id="fileText" cols="100" rows="50" readonly></textarea>
+  <p id="m0" style="white-space: pre-line;"></p>
   <p id="a0" style="white-space: pre-line;"></p>
 
   <div id="plane1" style="display:none">
     <hr style="margin:10px 0 10px 0" />
+    <text>音乐文件：</text><input type="text" id="newMusic" placeholder="请输入内容" size="50"><br>
     <text>新version：</text><input type="text" id="newVersion" placeholder="请输入内容" size="50"><br>
-    <text>总体偏移变化量：</text><input type="number" id="newOffset" step="1" value="0" placeholder="请输入整数" oninput="updateVer(this.value)">
+    <text>新倍速：</text><input type="number" id="newRate" step="0.01" value="0" placeholder="支持两位小数" oninput="validateAndFixRate(this)">
     <div >
       <button onclick="create()">生成并下载</button>
     </div>
@@ -103,50 +108,94 @@
 
 
 <script>
+  const inputMusic = document.getElementById('inputMusic');
+  const m0 = document.getElementById('m0');
   const input = document.getElementById('input');
   const a0 = document.getElementById('a0');
   const plane1 = document.getElementById('plane1');
+  const newMusic = document.getElementById('newMusic');
   const newVersion = document.getElementById('newVersion');
-  const newOffset = document.getElementById('newOffset');
+  const newRate = document.getElementById('newRate');
   const a1 = document.getElementById('a1');
 
   let reader;
   let ext = "";
   let baseName = "";
+  let baseMusic = "";
 
 //osu文件读取结果
+  let audioFilename = "";
+  let previewTime = "";
   let version = "";
-  let circleSize = 0;  
-  let hitObjects = []; 
   let timingPoints = [];
+  let hitObjects = []; 
 
-//mc文件读取额外结果
-  let oldOffset = 0;
-
+//下载是否合法
+  let allowDownload = false;
   let downloadString = "";
 
+
+//使输入合法
+function validateAndFixRate(input) {
+    a1.innerHTML = "";
+    allowDownload = false;
+    const val = parseFloat(input.value);
+    // 检查是否为有效数字
+    if (isNaN(val)) {
+        a1.innerHTML = "倍速输入错误";
+        return;
+    }
+    // 检查是否大于0
+    if (val <= 0) {
+        a1.innerHTML = "倍速输入错误";
+        return;
+    }
+    // 合法：强制保留两位小数，并更新输入框显示
+    const fixedVal = Math.round(val * 100) / 100; // 四舍五入到两位小数
+    // 注意：toFixed(2) 会返回字符串，可能导致额外舍入，但结合 step=0.01 可控
+    input.value = fixedVal.toFixed(2);
+    updateVer(fixedVal.toFixed(2));
+    allowDownload = true;
+    return;
+}
+
+//根据倍速值调整
 function updateVer(value){
-  downloadString = "";
+  // 将输入值转为数字
+  const num = parseFloat(value);
+  // 如果 ≤0，直接返回（不更新版本号）
+  if (num <= 0) return;
+
   var preString = "";
-  if (value==0){
-
-  }
-  else{
-    if(value>0){
-      preString = "[+"+ value +"] ";
-      downloadString = "-[+"+ value +"] ";
+  downloadString = "";
+  // 如果数值不等于 1，才添加前缀
+    if (num !== 1) {
+        // 利用 parseFloat 自动去除末尾多余的 0（如 1.10 → 1.1）
+        const cleanedStr = num.toString(); // 例如 1.10 → "1.1"，2.00 → "2"
+        preString = "[x" + cleanedStr + "] ";
+        downloadString = "-[x" + cleanedStr + "]";
     }
-    else{
-      preString = "[-"+ (-Number(value)).toString() +"] ";
-      downloadString = "-[-"+ (-Number(value)).toString() +"] ";
-    }
-  }
-
 
   newVersion.value = preString + version;
 }
+  function chooseMusic(){
+    baseMusic = "";
+    const file = inputMusic.files[0];
+    m0.innerHTML = '';
+    //选择文件判断
+    if (!file) {
+      m0.innerHTML = "";
+      return;
+    }
 
-  function choosefile(){
+    // 获取文件名并显示
+    baseMusic = file.name;
+    m0.innerHTML = "音乐文件：" + baseMusic;
+    newMusic.value = baseMusic;
+
+  }
+
+  function chooseFile(){
 
     const file = input.files[0];
     document.getElementById('fileText').value = "";
@@ -184,9 +233,6 @@ function updateVer(value){
       if(ext == ".osu"){
         readOsu(reader.result);
       }
-      else if(ext == ".mc"){
-        readMc(reader.result);
-      }
 
     }
     reader.readAsText(file, "UTF-8");
@@ -201,64 +247,47 @@ function updateVer(value){
     textarea.scrollTop = scrollPosition;
   }
 
-  function readMc(content){
-    //存储物件
-    hitObjects.length = 0;
-    oldOffset = 0;
-    circleSize = 0;
-    version = "";
-
-    try {
-      const data = JSON.parse(content);
-      // 提取 "version": string 字段 (位于 meta.version)
-      version = data.meta.version;
-      // 提取 "column": n 字段 (位于 meta.mode_ext.column)
-      circleSize = data.meta.mode_ext.column;
-      // 提取 "note": [] 里的内容
-      hitObjects = data.note; 
-      // 提取 "note": 列表倒一.offest
-      oldOffset = hitObjects.at(-1).offset;
-      
-      a0.innerHTML += "\n"+ "version："+version+"，key数："+circleSize+"，偏移："+oldOffset;
-      plane1.style.display = 'block';
-      newVersion.value = version;
-      a1.innerHTML = "";
-      
-    }
-    catch (error) {
-      a1.innerHTML = "解析错误";
-    }
-  }
-
   function readOsu(content){
     const lines = content.split(/\r?\n/); // 按换行符分割，兼容 \n 和 \r\n
     let inTimingPoints = false;
     let inHitObjects = false;
-    let inDifficulty = false;
     let inMetadata = false;
+    let inGeneral = false;
     //存储物件
     hitObjects.length = 0;
     timingPoints.length = 0;
-    circleSize = 0;
+    audioFilename = "";
+    previewTime = "";
     version = "";
+
 
     for (let i = 0; i < lines.length; i++){
       var line = lines[i];
       if (line.startsWith('[') && line.endsWith(']')) {
+        inGeneral = false;
         inMetadata = false;
-        inDifficulty = false;
         inTimingPoints = false;
         inHitObjects = false;
-        if (line == '[Metadata]') inMetadata = true;
-        else if (line == '[Difficulty]') inDifficulty = true;
-        else if (line == '[TimingPoints]'){
-          //行号滚动
-          scrollToLine(document.getElementById('fileText'), i);
-          inTimingPoints = true;
-        } 
+        if (line == '[General]') inGeneral = true;
+        else if (line == '[Metadata]') inMetadata = true;
+        else if (line == '[TimingPoints]') inTimingPoints = true;
         else if (line == '[HitObjects]') inHitObjects = true;
         continue;
       }
+      //收集General中AudioFilename、PreviewTime（这两个有空格）
+      if(inGeneral && line.includes(':')){
+        const colonIndex = line.indexOf(':');
+        const key = line.substring(0, colonIndex).trim();
+        if (key == 'AudioFilename') {
+          const value = line.substring(colonIndex + 1).trim();
+          audioFilename = value;
+        }
+        else if(key == 'PreviewTime') {
+          const value = line.substring(colonIndex + 1).trim();
+          previewTime = value;
+        }
+      }
+
       //收集Metadata中Version
       if(inMetadata && line.includes(':')){
         const colonIndex = line.indexOf(':');
@@ -269,15 +298,6 @@ function updateVer(value){
         }
       }
 
-      //收集Difficulty中CircleSize
-      if(inDifficulty && line.includes(':')){
-        const colonIndex = line.indexOf(':');
-        const key = line.substring(0, colonIndex).trim();
-        if (key == 'CircleSize') {
-          const value = line.substring(colonIndex + 1).trim();
-          circleSize = parseInt(value);
-        }
-      }
 
       //收集TimingPoints非空行
       if(inTimingPoints){
@@ -295,9 +315,10 @@ function updateVer(value){
         }
       }
     }
-    a0.innerHTML += "\n"+ "version："+version+"，key数："+circleSize;
+    a0.innerHTML += "\n"+ "version："+version
     plane1.style.display = 'block';
     newVersion.value = version;
+    newRate.value = 1.00;
     a1.innerHTML = "";
     
   }
@@ -305,37 +326,21 @@ function updateVer(value){
   function create(){
     a1.innerHTML = "";
     if(ext == ".osu"){
-      let intOffset = parseInt(newOffset.value, 10);
-
-      if (isNaN(intOffset)) {
-        intOffset = 0;
-        a1.innerHTML = "offest输入错误";
+      if(!allowDownload){
         return;
       }
-      a1.innerHTML = "读取并使用"+ intOffset.toString() +"生成";
+      const rate = parseFloat(newRate.value);
+
+      a1.innerHTML = "使用倍速"+ rate.toString() +"生成";
+
+      const newPreviewTime = Math.floor(parseInt(previewTime, 10) / rate).toString();
+      var newTimingPoints = updateOsuTiming(rate);
+      var newHitObjects = updateOsuHit(rate);
+
+      var newContent = connectOsu(reader.result,newPreviewTime,newMusic.value,newVersion.value,newTimingPoints,newHitObjects);
+      download(newContent);
+    }
     
-      var newTimingPoints = updateOsuTiming(intOffset);
-      var newHitObjects = updateOsuHit(intOffset);
-
-      var newContent = connectOsu(reader.result,newVersion.value,newTimingPoints,newHitObjects);
-      download(newContent);
-    }
-    else if(ext == ".mc"){
-      let intOffset = parseInt(newOffset.value, 10);
-
-      if (isNaN(intOffset)) {
-        intOffset = 0;
-        a1.innerHTML = "offest输入错误";
-        return;
-      }
-      a1.innerHTML = "读取并使用"+ intOffset.toString() +"生成";
-
-      var newHitObjects = updateMcHit(intOffset);
-
-      var newContent = connectMc(reader.result,newVersion.value,newHitObjects);
-      download(newContent);
-
-    }
     else{
       a1.innerHTML="后缀错误";
       return;
@@ -343,23 +348,31 @@ function updateVer(value){
   }
 
   //osu格式TimingPoints改变
-  function updateOsuTiming(intOffset){
+  function updateOsuTiming(rate){
     var newTimingPoints = [];
 
     // 遍历每一个原物件
     for (let obj of timingPoints){
-      // 解析时间（第一个逗号之前的内容）
-      const firstComma = obj.indexOf(',');
-      const xStr = obj.substring(0, firstComma);
-      const x = parseInt(xStr);
+      const parts = obj.split(',');
 
-      //计算新时间
-      const newX = x + intOffset;
+      // 1. 时间字段：除以 rate 并向下取整
+      const timeVal = parseFloat(parts[0]);
+      const newTime = Math.floor(timeVal / rate);
+      parts[0] = newTime.toString();
 
-      //获取新obj
-      let newObj;
-      newObj = newX + obj.substring(firstComma);
-      newTimingPoints.push(newObj);
+      // 2. 拍长字段：如果 >0 则除以 rate，保留15位有效数字，去除末尾零
+      const bpmStr = parts[1];
+      const bpmVal = parseFloat(bpmStr);
+      if (bpmVal > 0) {
+          const newBpm = bpmVal / rate;
+          // 保留15位有效数字
+          let formatted = newBpm.toPrecision(15);
+          // 去除末尾多余的零（以及可能的小数点）
+          formatted = formatted.replace(/\.?0+$/, '');
+          parts[1] = formatted;
+      }
+
+      newTimingPoints.push(parts.join(','));
 
     }
 
@@ -367,7 +380,7 @@ function updateVer(value){
   }
 
     //osu格式HitObjects改变
-  function updateOsuHit(intOffset){
+  function updateOsuHit(rate){
     var newHitObjects = [];
 
     // 遍历每一个原物件
@@ -382,7 +395,7 @@ function updateVer(value){
         const extraParts = extra.split(':');
         // 替换
         const x0 = parseInt(extraParts[0]);
-        const newX0 = x0 + intOffset;
+        const newX0 = Math.floor(x0 / rate);
         extraParts[0] = newX0.toString();
         parts[5] = extraParts.join(':');
       }
@@ -390,7 +403,7 @@ function updateVer(value){
 
       }
       const x = parseInt(parts[2]);
-      const newX = x + intOffset;
+      const newX = Math.floor(x / rate);
       // 替换
       parts[2] = newX.toString();
 
@@ -405,11 +418,12 @@ function updateVer(value){
   }
 
   //osu拼接文本
-  function connectOsu(content,newVersion,newTimingPoints,newHitObjects){
+  function connectOsu(content,newPreviewTime,newMusic,newVersion,newTimingPoints,newHitObjects){
     const lines = content.split(/\r?\n/); // 按换行符分割，兼容 \n 和 \r\n
     let inHitObjects = false;
     let inTimingPoints = false;
     let inMetadata = false;
+    let inGeneral = false;
     const result = [];
 
     for (let i = 0; i < lines.length; i++){
@@ -419,6 +433,10 @@ function updateVer(value){
         inMetadata = false;
         inTimingPoints = false;
         inHitObjects = false;
+        inGeneral = false;
+        if (line == '[General]'){
+          inGeneral = true;
+        }
         if (line == '[Metadata]'){
           inMetadata = true;
         } 
@@ -446,6 +464,12 @@ function updateVer(value){
         
       }
       //特定行修改
+      else if(inGeneral && line.startsWith('AudioFilename:')){
+        line = `AudioFilename: ${newMusic}`;
+      }
+      else if(inGeneral && line.startsWith('PreviewTime:')){
+        line = `PreviewTime: ${newPreviewTime}`;
+      }
       else if(inMetadata && line.startsWith('Version:')){
         line = `Version:${newVersion}`;
       }
@@ -462,48 +486,14 @@ function updateVer(value){
 
   }
 
-//mc格式HitObjects改变
-  function updateMcHit(intOffset){
-    var newHitObjects = [...hitObjects];
-    var last = newHitObjects.at(-1);
-    newHitObjects[newHitObjects.length - 1] = {
-        ...last,
-        offset: (last.offset || 0) - intOffset
-    };
-    return newHitObjects;
-  }
 
-  //mc拼接文本
-  function connectMc(content,newVersion,newHitObjects){
-    try {
-      const original = JSON.parse(content);
-      // 深拷贝原始数据
-      const newData = JSON.parse(JSON.stringify(original));
-      // 1. 修改 version
-      if (newData.meta){
-        newData.meta.version = newVersion;
-        newData.meta.time = newData.meta.time+1;
-      }
-      //2.修改note 数组
-      newData.note = newHitObjects;
-
-      //3.输出无空格字符串
-      return JSON.stringify(newData);
-
-    }
-    catch (error) {
-        a1.innerHTML = "拼接错误";
-        return "";
-    }
-
-  }
 
   function download(content){
     //const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
     const blob = new Blob([content], { type: 'application/octet-stream' });
     const link = document.createElement('a');
     link.href = URL.createObjectURL(blob);
-    link.download = baseName + downloadString + "-[wtnql.github.io]"+ ext;
+    link.download = baseName + downloadString + "-[wtnql.github.io]" + ext;
     link.click();
     URL.revokeObjectURL(link.href);
   }
