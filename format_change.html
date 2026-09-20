@@ -376,11 +376,9 @@ function bpmListProcess(bpmList){
   /*示例：bpmList=[[0,190.000,30],[282,95.000,89082.63157...],[298,190.000,99187.89473...]]（应至少有一项）
   1.对于bpmList的第i项，新建项{"beat":[bpmList[i][0],0,1],"bpm":bpmList[i][1]}，加入time列表
   2.如果bpmList长度>1，对于bpmList的第i项，新建项{"beat":[bpmList[i][0],0,1],"scroll":bpmList[0][1]/bpmList[i][1]}，加入effect列表
-  3.offset=bpmList[0][2]
   示例结果
   time=[{"beat":[0,0,1],"bpm":190.000},{"beat":[282,0,1],"bpm":95.000},{"beat":[298,0,1],"bpm":190.000}]
   effect=[{"beat":[0,0,1],"scroll":1.0},]
-  offset=30
   */
 
   let time = [];
@@ -410,11 +408,9 @@ function bpmListProcess(bpmList){
     }
   }
 
-  // 3. offset 取第一项的精确时间
-  offset = bpmList[0][2];
 
 
-  return [time, effect, offset];
+  return [time, effect];
 }
 
 function updateNoteList(CircleSize,bpmList,HitObjects,AudioFilename,divide=288){
@@ -426,7 +422,7 @@ function updateNoteList(CircleSize,bpmList,HitObjects,AudioFilename,divide=288){
   (2)判断类型，HitObjects[i][3]值为1或5时，仅有beatTime=HitObjects[i][2]，HitObjects[i][3]值为128时，有beatTime=HitObjects[i][2]，endbeatTime=HitObjects[i][5]冒号第一项;
   (3)转换时间，将beatTime、endbeatTime转成beat、endbeat，如下：时间a=beatTime+1，判断属于bpmList的哪个区间，如属于j区间，则满足bpmList[j][2]<=a<bpmList[j+1][2]（j为最后一项时满足bpmList[j][2]<=a），然后计算b=(a-bpmList[j][2])/(60000/bpmList[j][1]),c=b的整数部分,d=b的小数部分，e=向下取整(d*divide),f=c+bpmList[j][0];新建项{"beat":[f,e,devide],（可能存在"endbeat":[...],）"column":column}
   (4)把三的项添加至noteList
-  2.再为noteList添加一项{"beat":[0,0,1],"sound":AudioFilename,"vol":100,"offset":bpmList[0][2],"type":1}
+  2.再为noteList添加一项{"beat":[0,0,1],"sound":AudioFilename,"vol":100,"offset":-bpmList[0][2],"type":1}
 
   示例结果：
   noteList=[{"beat":[20,0,288],"column":0},{"beat":[27,0,288],"endbeat":[31,0,288],"column":2},{"beat":[282,0,288],"column":3}]
@@ -506,7 +502,7 @@ function updateNoteList(CircleSize,bpmList,HitObjects,AudioFilename,divide=288){
         beat: [0, 0, 1],
         sound: AudioFilename,
         vol: 100,
-        offset: bpmList[0][2],
+        offset: -bpmList[0][2],
         type: 1
     });
 
