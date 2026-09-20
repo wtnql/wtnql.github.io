@@ -1,0 +1,650 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<title>格式转换</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    body {
+      max-width: 800px;
+      margin: 0 auto;
+      padding: 20px;
+      line-height: 2;
+
+    }
+    hr {
+      
+    }
+    button{
+      display: block;
+      width: 200px;
+      height: 40px;
+      margin: 20px auto;
+      padding: 5px 15px;
+      font-size: 16px;
+    }
+    input[type="file"] {
+      margin: 10px 0 5px 0;
+      font-size: 16px;
+    }
+    input[type="text"] {
+      font-size: 16px;
+      padding: 5px 5px;
+    }
+    select{
+      font-size: 16px;
+      margin: 0 10px 0 0;
+      padding: 5px 5px;
+
+    }
+    textarea {
+      font-size: 14px;
+      line-height: 1.2;
+      width: 550px;
+      margin: 5px 0 0 0;
+      height: 125px;
+    }
+    .button-like {
+      display: block;
+      width: 200px;
+      height: 40px;
+      margin: 10px auto;
+      padding: 5px 15px;
+      font-size: 16px;
+      /* 浏览器默认按钮样式（包括背景色、边框等） */
+      background-color: buttonface;
+      border: 1px solid #767676;
+      border-radius: 2px;
+      
+      text-align: center;
+      text-decoration: none;
+      color: buttontext;
+    }
+    .button-like:hover {
+      background-color: #e6e6e6;
+      border-color: #4d4d4d;
+    }
+  </style>
+
+</head>
+<body>
+  <h2 style="text-align: center;">格式转换，支持.osu转.mc（2026.9.20.1）</h2>
+  <p style="font-size: 16px;text-align: center;">不含变速等效果</p>
+  <hr />
+  <div>
+    <input type="file" id="input" accept=".osu" onchange="choosefile()" style="display: none;">
+    <label for="input" class="button-like">选择文件</label>
+  </div>
+  <p id="a0"></p>
+  <textarea style="display:block; margin: 0 auto; width: 750px; height: 200px;" id="text" cols="100" rows="50" readonly ></textarea>
+  
+  <p id="a1"></p>
+  
+  <div id="plane1" style="display:none">
+    <hr style="margin:10px 0 10px 0" />
+    <p>预览</p>
+    <div>
+      <textarea style="display:block; margin: 0 auto; width: 750px; height: 200px;" id="text2" cols="100" rows="50" readonly ></textarea>
+    </div>
+      
+    <div >
+      <button onclick="create()">下载</button>
+    </div>
+    
+  </div>
+
+  <p id="a2"></p>
+
+
+<script>
+  const input = document.getElementById('input');
+  const a0 = document.getElementById('a0');
+  const a1 = document.getElementById('a1');
+  const a2 = document.getElementById('a2');
+  const text = document.getElementById('text');
+  const text2 = document.getElementById('text2'); //显示预览
+  const plane1 = document.getElementById('plane1');
+
+
+  // osu原始变量
+  // https://osu.ppy.sh/wiki/zh/Client/File_formats/osu_%28file_format%29
+  let AudioFilename = "";
+  let PreviewTime = 0;
+  let Title = "";
+  let TitleUnicode = "";
+  let Artist = "";
+  let ArtistUnicode = "";
+  let Creator = "";
+  let Version = "";
+  let CircleSize = 0;
+  let Background = "";
+  let TimingPoints = [];
+  let HitObjects = [];
+
+
+  //其他
+  let reader;
+  let ext = "";
+  let baseName = "";
+
+
+
+  //转成mc的变量
+  let bpmList = [];
+  let noteList = [];
+  let mcText = "";
+
+
+
+  function choosefile(){
+    const file = input.files[0];
+    text.value = "";
+    plane1.style.display = 'none';
+
+    a0.innerHTML = '';
+    a1.innerHTML = '';
+    a2.innerHTML = '';
+
+
+    //选择文件判断
+    if (!file) {
+      a0.innerHTML = "";
+      a1.innerHTML = "";
+
+      return;
+    }
+    reader = new FileReader();
+
+    // 获取文件名，并提取扩展名（转为小写便于比较）
+    const fileName = file.name;
+    a0.innerHTML = fileName;
+    ext = fileName.substring(fileName.lastIndexOf('.')).toLowerCase();
+    baseName = fileName.substring(0, fileName.lastIndexOf('.'));
+   
+    // 允许的后缀名列表
+    const allowedExts = ['.osu'];
+    if(ext == ".osu"){
+      
+    }
+    else{
+      a1.innerHTML = "不支持的文件类型";
+      return;
+    }
+    reader.onload = function () {
+      text.value = reader.result;
+
+    if(ext == ".osu"){
+        readOsu(reader.result);
+      }
+
+    }
+    reader.readAsText(file, "UTF-8");
+  }
+
+  function readOsu(content){
+    // 重置所有变量
+    AudioFilename = "";
+    PreviewTime = 0;
+    Title = "";
+    TitleUnicode = "";
+    Artist = "";
+    ArtistUnicode = "";
+    Creator = "";
+    Version = "";
+    CircleSize = 0;
+    Background = "";
+    TimingPoints = [];
+    HitObjects = [];
+
+    const lines = content.split(/\r?\n/); // 按换行符分割，兼容 \n 和 \r\n
+    let section = "";
+
+  for (const line of lines) {
+    const trimmed = line.trim();
+
+    // 识别段落
+    if (trimmed.startsWith('[') && trimmed.endsWith(']')) {
+      section = trimmed;
+      continue;
+    }
+
+    // 跳过空行和注释行
+    if (trimmed === "" || trimmed.startsWith("//")) continue;
+
+    if (section === "[General]") {
+      const idx = line.indexOf(':');
+      if (idx !== -1) {
+        const key = line.substring(0, idx).trim();
+        const value = line.substring(idx + 1).trim();
+
+        if (key === "AudioFilename") {
+          AudioFilename = value;
+        } else if (key === "PreviewTime") {
+          PreviewTime = parseInt(value, 10) || 0; //把字符串 value 按十进制解析成整数,A||B如果A是“假值”，就返回B；否则返回A.
+        }
+      }
+    } else if (section === "[Metadata]") {
+      const idx = line.indexOf(':');
+      if (idx !== -1) {
+        const key = line.substring(0, idx).trim();
+        const value = line.substring(idx + 1).trim();
+
+        if (key === "Title") {
+          Title = value;
+        } else if (key === "TitleUnicode") {
+          TitleUnicode = value;
+        } else if (key === "Artist") {
+          Artist = value;
+        } else if (key === "ArtistUnicode") {
+          ArtistUnicode = value;
+        } else if (key === "Creator") {
+          Creator = value;
+        } else if (key === "Version") {
+          Version = value;
+        }
+      }
+    } else if (section === "[Difficulty]") {
+      const idx = line.indexOf(':');
+      if (idx !== -1) {
+        const key = line.substring(0, idx).trim();
+        const value = line.substring(idx + 1).trim();
+
+        if (key === "CircleSize") {
+          CircleSize = parseInt(value, 10) || 0;
+        }
+      }
+    } else if (section === "[Events]") {
+      // 跳过视频行
+      if (trimmed.startsWith("Video")) continue;
+
+      // 取背景图片，通常格式为 0,0,"amusi.jpg",0,0
+      if (Background === "" && trimmed.startsWith("0,0,")) {
+        const match = trimmed.match(/"([^"]+)"/);//找到一对双引号，并把它们中间的内容捕获下来。
+        if (match && match[1]) {
+          Background = match[1];
+        }
+      }
+    } else if (section === "[TimingPoints]") {
+      if(line!=''){
+      // 每一行作为一个字符串加入列表
+      TimingPoints.push(line);
+      }
+    } else if (section === "[HitObjects]") {
+      if(line!=''){
+      // 每一行作为一个字符串加入列表
+      HitObjects.push(line);
+      }
+    }
+  }
+  plane1.style.display = 'block';
+
+
+  //执行内容转换
+  updateBpmList(TimingPoints);//更新bpmList
+  let a = bpmListProcess(bpmList);//[time, effect, offset]
+  updateNoteList(CircleSize,bpmList,HitObjects,AudioFilename);//更新noteList
+  mcText = connectMc(Creator,Background,"[转] "+Version,PreviewTime,Title,Artist,TitleUnicode,ArtistUnicode,CircleSize,a[0],a[1],noteList);
+
+  //
+  text2.value = mcText;
+
+  }
+
+  function create(){
+
+    download(mcText,baseName,".mc");
+    a2.innerHTML="开始下载";
+
+  }
+
+  function updateBpmList(TimingPoints){
+    //时间语法：时间,拍长,节拍,音效组,音效参数,音量,是否为非继承时间点（红线）,效果
+    /*
+    bpmList = [];
+    示例
+    [TimingPoints]
+    30,315.789473684211,4,2,0,5,1,0
+    30,-100,4,2,0,5,0,0
+    89082,631.578947368421,4,2,0,5,1,0
+    89082,-50,4,2,0,5,0,0
+    99187,315.789473684211,4,2,0,5,1,0
+    99187,-100,4,2,0,5,0,0
+
+    1.判断拍长>0的取出，转为列表数字项。
+    2.对于取出的行i（i[j]表示索引j的项），判断是否是第一行，如果是：(1)bpm = 60000/i[1]并保留3位小数,(2)新建项[0,bpm,i[0]]存储到bpmList。
+    如果不是：(1)bpm = 60000/i[1]并保留3位小数,(2)a=i[0]-bpmList[i-1][2],(3)b=a/(60000/bpmList[i-1][1]),(4)c=四舍五入b,(5)新建项[bpmList[i-1][0]+c,bpm,bpmList[i-1][2]+c*(60000/bpmList[i-1][1])]存储到bpmList。
+
+    示例结果：
+    bpmList=[[0,190.000,30],[282,95.000,89082.63157...],[298,190.000,99187.89473...]]
+    */
+    bpmList = [];
+
+    // 1. 过滤出拍长 > 0 的行，并转为数字数组
+    const validPoints = [];
+    for (const line of TimingPoints) {
+        const trimmed = line.trim();
+        if (trimmed === '' || trimmed.startsWith('//')) continue;
+        const parts = trimmed.split(',');
+        if (parts.length < 2) continue;
+        const time = parseFloat(parts[0]);       // 时间(ms)
+        const beatLength = parseFloat(parts[1]); // 每拍毫秒数
+        if (beatLength > 0) {
+            validPoints.push([time, beatLength]);
+        }
+    }
+     // 2. 遍历有效点，构建 bpmList
+    for (let i = 0; i < validPoints.length; i++) {
+        const time = validPoints[i][0];
+        const beatLength = validPoints[i][1];
+
+        // 计算 bpm 并保留 3 位小数
+        let bpm = 60000 / beatLength;
+        bpm = Math.round(bpm * 1000) / 1000;
+
+        if (i === 0) {
+            // 第一项：[0, bpm, 原始时间]
+            bpmList.push([0, bpm, time]);
+        } else {
+            const prev = bpmList[i - 1];
+            const prevTime = prev[2];               // 上一项的累积精确时间
+            const prevBpm = prev[1];
+            const prevBeatLength = 60000 / prevBpm; // 上一项的每拍毫秒数
+
+            const a = time - prevTime;              // 时间差
+            const b = a / prevBeatLength;           // 相差拍数（可能为小数）
+            const c = Math.round(b);                // 四舍五入取整拍数
+
+            const newBeat = prev[0] + c;            // 累积整数拍数
+            const newTime = prevTime + c * prevBeatLength; // 累积精确时间
+
+            bpmList.push([newBeat, bpm, newTime]);
+        }
+
+
+
+
+  }
+}
+
+function bpmListProcess(bpmList){
+
+  /*示例：bpmList=[[0,190.000,30],[282,95.000,89082.63157...],[298,190.000,99187.89473...]]（应至少有一项）
+  1.对于bpmList的第i项，新建项{"beat":[bpmList[i][0],0,1],"bpm":bpmList[i][1]}，加入time列表
+  2.如果bpmList长度>1，对于bpmList的第i项，新建项{"beat":[bpmList[i][0],0,1],"scroll":bpmList[0][1]/bpmList[i][1]}，加入effect列表
+  3.offset=bpmList[0][2]
+  示例结果
+  time=[{"beat":[0,0,1],"bpm":190.000},{"beat":[282,0,1],"bpm":95.000},{"beat":[298,0,1],"bpm":190.000}]
+  effect=[{"beat":[0,0,1],"scroll":1.0},]
+  offset=30
+  */
+
+  let time = [];
+  let effect = [];
+  let offset = 0;
+
+  if (!Array.isArray(bpmList) || bpmList.length === 0) {
+    return [time, effect, offset];
+  }
+
+  // 1. 构建 time 列表
+  for (let i = 0; i < bpmList.length; i++) {
+    time.push({
+      "beat": [bpmList[i][0], 0, 1],
+      "bpm": bpmList[i][1]
+    });
+  }
+
+  // 2. 构建 effect 列表（仅在 bpm 数量 > 1 时）
+  if (bpmList.length > 1) {
+    const baseBpm = bpmList[0][1];
+    for (let i = 0; i < bpmList.length; i++) {
+      effect.push({
+        "beat": [bpmList[i][0], 0, 1],
+        "scroll": baseBpm / bpmList[i][1]
+      });
+    }
+  }
+
+  // 3. offset 取第一项的精确时间
+  offset = bpmList[0][2];
+
+
+  return [time, effect, offset];
+}
+
+function updateNoteList(CircleSize,bpmList,HitObjects,AudioFilename,divide=288){
+  /*
+  [HitObjects]：x,y,时间,物件类型,打击音效,物件参数,打击音效组
+  示例HitObjects=["64,384,6345,5,0,0:0:0:0:","321,384,8556,128,0,9819:0:0:0:0:","448,192,89082,1,0,0:0:0:0:"]（时间一定是从小到大）
+  bpmList=[[0,190.000,30],[282,95.000,89082.63157...],[298,190.000,99187.89473...]]
+  1.对于HitObjects第i项，(1)判断轨道，column=getOsuIdx(CircleSize,HitObjects[i][0]);
+  (2)判断类型，HitObjects[i][3]值为1或5时，仅有beatTime=HitObjects[i][2]，HitObjects[i][3]值为128时，有beatTime=HitObjects[i][2]，endbeatTime=HitObjects[i][5]冒号第一项;
+  (3)转换时间，将beatTime、endbeatTime转成beat、endbeat，如下：时间a=beatTime+1，判断属于bpmList的哪个区间，如属于j区间，则满足bpmList[j][2]<=a<bpmList[j+1][2]（j为最后一项时满足bpmList[j][2]<=a），然后计算b=(a-bpmList[j][2])/(60000/bpmList[j][1]),c=b的整数部分,d=b的小数部分，e=向下取整(d*divide),f=c+bpmList[j][0];新建项{"beat":[f,e,devide],（可能存在"endbeat":[...],）"column":column}
+  (4)把三的项添加至noteList
+  2.再为noteList添加一项{"beat":[0,0,1],"sound":AudioFilename,"vol":100,"offset":bpmList[0][2],"type":1}
+
+  示例结果：
+  noteList=[{"beat":[20,0,288],"column":0},{"beat":[27,0,288],"endbeat":[31,0,288],"column":2},{"beat":[282,0,288],"column":3}]
+  */
+
+  noteList = [];
+
+ // 辅助函数：将毫秒时间转换为 beat 数组 [f, e, divide]
+    function timeToBeat(time) {
+        const a = time + 1; // 根据要求：时间 a = beatTime + 1
+
+        // 找到所属区间 j
+        let j = bpmList.length - 1;
+        for (let k = 0; k < bpmList.length; k++) {
+            if (k === bpmList.length - 1) {
+                // 最后一项，只需 a >= bpmList[k][2]
+                if (a >= bpmList[k][2]) {
+                    j = k;
+                    break;
+                }
+            } else {
+                if (a >= bpmList[k][2] && a < bpmList[k + 1][2]) {
+                    j = k;
+                    break;
+                }
+            }
+        }
+        const bpm = bpmList[j][1];
+        const beatLength = 60000 / bpm;               // 每拍毫秒数
+        const b = (a - bpmList[j][2]) / beatLength;   // 相对当前区间起始的拍数
+        const c = Math.floor(b);                      // 整数部分
+        const d = b - c;                              // 小数部分
+        const e = Math.floor(d * divide);             // 向下取整得到子拍
+        const f = c + bpmList[j][0];                  // 加上当前区间的起始累积拍数
+
+        return [f, e, divide];
+    }
+    // 遍历 HitObjects 每一行
+    for (const line of HitObjects) {
+        const trimmed = line.trim();
+        if (trimmed === '' || trimmed.startsWith('//')) continue;
+
+        const parts = trimmed.split(',');
+        if (parts.length < 4) continue;
+
+        const x = parseInt(parts[0], 10);        // x 坐标
+        const time = parseInt(parts[2], 10);     // 打击时间
+        const type = parseInt(parts[3], 10);     // 物件类型
+
+        const column = getOsuIdx(CircleSize, x);
+        if (column === -1) continue;             // 无效轨道，跳过
+
+        const note = {};
+
+        if (type === 1 || type === 5) {
+            // 普通单点
+            note.beat = timeToBeat(time);
+            note.column = column;
+        } else if (type === 128) {
+            // 长按（Hold）
+            note.beat = timeToBeat(time);
+
+            // 物件参数在 parts[5]，格式如 "9819:0:0:0:0:"
+            const endTime = parseInt(parts[5].split(':')[0], 10);
+            note.endbeat = timeToBeat(endTime);
+            note.column = column;
+        } else {
+            // 其他类型忽略
+            continue;
+        }
+
+        noteList.push(note);
+    }
+
+    // 添加音频项
+    noteList.push({
+        beat: [0, 0, 1],
+        sound: AudioFilename,
+        vol: 100,
+        offset: bpmList[0][2],
+        type: 1
+    });
+
+}
+
+  //osu查询轨道索引
+  function getOsuIdx(keyCount,x){
+    if (x < 0 || x > 511) return -1;
+    switch (keyCount) {
+      case 4:
+        if (x <= 127) return 0;
+        if (x <= 255) return 1;
+        if (x <= 383) return 2;
+        return 3;
+      case 5:
+        if (x <= 101) return 0;
+        if (x <= 203) return 1;
+        if (x <= 305) return 2;
+        if (x <= 407) return 3;
+        return 4;
+      case 6:
+        if (x <= 84) return 0;
+        if (x <= 169) return 1;
+        if (x <= 254) return 2;
+        if (x <= 339) return 3;
+        if (x <= 424) return 4;
+        return 5;
+      case 7:
+        if (x <= 72) return 0;
+        if (x <= 145) return 1;
+        if (x <= 218) return 2;
+        if (x <= 291) return 3;
+        if (x <= 364) return 4;
+        if (x <= 437) return 5;
+        return 6;
+      case 8:
+        if (x <= 63) return 0;
+        if (x <= 127) return 1;
+        if (x <= 191) return 2;
+        if (x <= 255) return 3;
+        if (x <= 319) return 4;
+        if (x <= 383) return 5;
+        if (x <= 447) return 6;
+        return 7;
+      default:
+        return -1;
+    }
+  }
+
+  //osu映射列表
+  function getOsuMap(num){
+    if(num == 4){
+      return [64,192,320,448];
+    }
+    else if(num == 5){
+      return [51,153,256,358,460];
+    }
+    else if(num == 6){
+      return [42,128,213,298,384,469];
+    }
+    else if(num == 7){
+      return [36,109,182,256,329,402,475];
+    }
+    else if(num == 8){
+      return [32,96,160,224,288,352,416,480];
+    }
+    else{
+      return [];
+    }
+  }
+
+//拼接文本
+  function connectMc(Creator,Background,Version,PreviewTime,Title,Artist,TitleUnicode,ArtistUnicode,CircleSize,time,effect,noteList){
+    //拼接详情：{"meta":{"$ver":0,"creator":Creator,"background":Background,"version":Version,"preview":PreviewTime,"id":0,"mode":0,"time":秒级时间戳,"song":{"title":Title,"artist":Artist,"id":0,"titleorg":TitleUnicode,"artistorg":ArtistUnicode},"mode_ext":{"column":CircleSize,"bar_begin":0}},"time":time,"effect":effect,"note":noteList,"extra":{"test":{"divide":4,"speed":100,"save":0,"lock":0,"edit_mode":0}}}
+
+    //先用data存储内容，然后输出无空格字符串JSON.stringify(data)
+
+    const data = {
+    "meta": {
+      "$ver": 0,
+      "creator": Creator,
+      "background": Background,
+      "version": Version,
+      "preview": PreviewTime,
+      "id": 0,
+      "mode": 0,
+      "time": Math.floor(Date.now() / 1000), // 秒级时间戳
+      "song": {
+        "title": Title,
+        "artist": Artist,
+        "id": 0,
+        "titleorg": TitleUnicode,
+        "artistorg": ArtistUnicode
+      },
+      "mode_ext": {
+        "column": CircleSize,
+        "bar_begin": 0
+      }
+    },
+    "time": time,
+    "effect": effect,
+    "note": noteList,
+    "extra": {
+      "test": {
+        "divide": 4,
+        "speed": 100,
+        "save": 0,
+        "lock": 0,
+        "edit_mode": 0
+      }
+    }
+  };
+
+    return JSON.stringify(data);
+
+
+
+  }
+
+    function download(content,baseName,ext){
+    //const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
+    const blob = new Blob([content], { type: 'application/octet-stream' });
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = baseName + "-[wtnql.github.io]" + ext;
+    link.click();
+    URL.revokeObjectURL(link.href);
+  }
+
+
+
+
+
+
+
+
+
+
+</script>
+</body>
+</html>
