@@ -1,6 +1,24 @@
+<!-- 转html, https://markdowntohtml.com/ -->
 
-## 轨道重排，支持.mc/.osu（2026.5.27.1）
+<style>
+  summary.h2-style {
+    font-size: 1.5em;
+    font-weight: 600;
+    line-height: 1.25;
+    margin-top: 24px;
+    margin-bottom: 16px;
+    padding-bottom: 0.3em;
+    cursor: pointer;
+  }
+
+</style>
+
+<details>
+<summary class="h2-style">轨道重排，支持.mc/.osu</summary>
+
+## 2026.5.27.1
 v1版，支持4-8k
+
 ## 2026.5.28.1
 修复了部分osu文件[HitObjects]物件首位x判断失效的问题，新映射法如下：
 
@@ -23,7 +41,12 @@ v1版，支持4-8k
 ## 2026.8.18.1
 版本名与文件名自命名逻辑
 
-## 总体偏移调整，支持.mc/.osu（2026.6.4.1）
+</details>
+
+<details>
+<summary class="h2-style">总体偏移调整，支持.mc/.osu</summary>
+
+## 2026.6.4.1
 v1版，主要适用于malody调整osu谱面偏移。
 
 ## 2026.8.17.1
@@ -32,15 +55,26 @@ v1版，主要适用于malody调整osu谱面偏移。
 ## 2026.8.18.1
 版本名与文件名自命名逻辑
 
-## 谱面倍速工具，支持.osu（2026.8.18.1）
+</details>
+
+<details>
+<summary class="h2-style">谱面倍速工具，支持.osu</summary>
+
+## 2026.8.18.1
 v1版，支持malody调整osu谱面倍速（不含音乐）
 
 ## 2026.8.18.2
 文件名自命名
+</details>
 
-## 格式转换，支持.osu转.mc（2026.9.20.1）
+<details>
+<summary class="h2-style">格式转换，支持.osu转.mc</summary>
+
+## 2026.9.20.1
 v1版，不含变速等效果（effect自动添加scroll保持速度一致）。
 
+## 2026.9.21.1
+offset截断小数。
 
-
+</details>
 

@@ -73,7 +73,7 @@
 
 </head>
 <body>
-  <h2 style="text-align: center;">格式转换，支持.osu转.mc（2026.9.20.1）</h2>
+  <h2 style="text-align: center;">格式转换，支持.osu转.mc（2026.9.21.1）</h2>
   <p style="font-size: 16px;text-align: center;">不含变速等效果</p>
   <hr />
   <div>
@@ -502,7 +502,7 @@ function updateNoteList(CircleSize,bpmList,HitObjects,AudioFilename,divide=288){
         beat: [0, 0, 1],
         sound: AudioFilename,
         vol: 100,
-        offset: -bpmList[0][2],
+        offset: Math.trunc(-bpmList[0][2]),
         type: 1
     });
 
