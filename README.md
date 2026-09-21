@@ -61,10 +61,6 @@ v1 版，主要适用于 malody 调整 osu 谱面偏移。
 
 v1 版，支持 malody 调整 osu 谱面倍速（不含音乐）。
 
-### 2026.8.18.2
-
-文件名自命名。
-
 </details>
 
 <details>
